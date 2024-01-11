@@ -2,14 +2,15 @@ import numpy as np
 
 
 class JumbledPatternMatch:
-    size = 32
+    size = 16
     str_array = np.zeros(size).astype(int)
     ref_table = np.zeros(size).astype(int)
     idx_table = np.zeros(size).astype(int)
 
     def new_random(self):
-        self.str_array = np.random.randint(2, size=(1, self.size))[0]
         self.ref_table[:] = 0
+        self.idx_table[:] = 0
+        self.str_array = np.random.randint(2, size=(1, self.size))[0]
         self.ref_index_table(self.str_array)
 
     def ref_index_table(self, str_array):
@@ -19,20 +20,41 @@ class JumbledPatternMatch:
         return self.ref_table
 
     def n_logn(self, str_array):
+
         edge_zeros = self.remove_edge_zeros_string(str_array)
         counted = self.get_counted(str_array, edge_zeros)
-        root = self.find_root(counted, edge_zeros)
-        self.root_to_edges(counted, root)
-        
+
+        if counted.size > 1:
+            root = self.find_root(counted, edge_zeros)
+            self.root_to_edges(counted, root)
+
+            #divide string
+            if root[1] == 0:
+                #print('init', str_array[(counted[0]+edge_zeros[0]):])
+                self.n_logn(str_array[(counted[0]+edge_zeros[0]):])
+            elif root[1] == counted.size-1:
+                #print('end', str_array[:-(counted[-1]+edge_zeros[1])])
+                self.n_logn(str_array[:-(counted[-1]+edge_zeros[1])])
+            else:
+                #print('mid-init', str_array[:np.sum(counted[:(root[1]+1)])+edge_zeros[0]])
+                #print('mid-end', str_array[np.sum(counted[:root[1]])+edge_zeros[0]:])
+                self.n_logn(str_array[:np.sum(counted[:(root[1]+1)])+edge_zeros[0]])
+                self.n_logn(str_array[np.sum(counted[:root[1]])+edge_zeros[0]:])
+
         self.windonize_table(self.idx_table)
 
-        print(str_array)
+    def verify_algorithm(self):
+        differ = 0
+        for i in range(self.size):
+            if self.ref_table[i] != self.idx_table[i]:
+                differ += 1
+        return differ
+
+    def print_tables(self, differ):
+        print(jpm.str_array)
         print(self.ref_table)
         print(self.idx_table)
-        print((self.ref_table==self.idx_table).all())
-        print(counted)
-        #print(edge_zeros)
-        print(root)
+        print((self.ref_table==self.idx_table).all(), ' by: ', differ)
 
     def windonize_table(self, table):
         for i in range(table.size-2, -1, -1):
@@ -140,7 +162,20 @@ class JumbledPatternMatch:
 
 
 jpm = JumbledPatternMatch()
-
-jpm.new_random()
-#jpm.set_str_array([1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1])
+jpm.set_str_array([1, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1])
+#jpm.new_random()
 jpm.n_logn(jpm.str_array)
+differ = jpm.verify_algorithm()
+jpm.print_tables(differ)
+
+
+""" differ = 0
+stack_limit = 500
+while (differ == 0) & (stack_limit > 0):
+    jpm.new_random()
+    print(jpm.str_array)
+    jpm.n_logn(jpm.str_array)
+    differ = jpm.verify_algorithm()
+    stack_limit -= 1
+
+jpm.print_tables(differ) """
