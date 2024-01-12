@@ -2,7 +2,7 @@ import numpy as np
 
 
 class JumbledPatternMatch:
-    size = 16
+    size = 2048
     str_array = np.zeros(size).astype(int)
     ref_table = np.zeros(size).astype(int)
     idx_table = np.zeros(size).astype(int)
@@ -26,7 +26,9 @@ class JumbledPatternMatch:
 
         if counted.size > 1:
             root = self.find_root(counted, edge_zeros)
+            #self.root_to_edges_n2(counted, root)
             self.root_to_edges(counted, root)
+            self.root_to_edges_max_1(counted, root)
 
             #divide string
             if root[1] == 0:
@@ -38,17 +40,21 @@ class JumbledPatternMatch:
             else:
                 #print('mid-init', str_array[:np.sum(counted[:(root[1]+1)])+edge_zeros[0]])
                 #print('mid-end', str_array[np.sum(counted[:root[1]])+edge_zeros[0]:])
-                self.n_logn(str_array[:np.sum(counted[:(root[1]+1)])+edge_zeros[0]])
+                self.n_logn(str_array[:np.sum(counted[:(root[1])])+edge_zeros[0]])
                 self.n_logn(str_array[np.sum(counted[:root[1]])+edge_zeros[0]:])
 
         self.windonize_table(self.idx_table)
 
     def verify_algorithm(self):
         differ = 0
+        differ_table = np.zeros(self.size).astype(int)
         for i in range(self.size):
+            differ_table[i] = self.ref_table[i] - self.idx_table[i]
             if self.ref_table[i] != self.idx_table[i]:
                 differ += 1
+        print(differ_table)
         return differ
+
 
     def print_tables(self, differ):
         print(jpm.str_array)
@@ -62,6 +68,17 @@ class JumbledPatternMatch:
         for i in range(1, table.size):
             table[i] = max(table[i], table[i-1])
 
+    def root_to_edges_n2(self, counted, root):
+        max_left = root[1] // 2
+        max_right = (counted.size - root[1] - 1) // 2
+
+        for l in range(max_left+1):
+            for r in range(max_right+1):
+                sub_counted = counted[(root[1]-2*l):(root[1]+2*r+1)]
+                window_value = [np.sum(sub_counted), np.sum(sub_counted[::2])]
+                self.update_idx_table(window_value, 0)
+
+    
     def root_to_edges(self, counted, root):
         offset_left = 0
         offset_right = 0
@@ -97,6 +114,40 @@ class JumbledPatternMatch:
                 offset_left += 2
             offset = 0
 
+    def root_to_edges_max_1(self, counted, root):
+        offset_left = 0
+        offset_right = 0
+        offset = 0
+
+        window_value = np.array([root[0], root[0]])
+
+        while (offset_left + offset_right) < counted.size-1:
+
+            left = counted[root[1]-2-offset-offset_left] if (root[1]-2-offset-offset_left >= 0) else 0
+            right = counted[root[1]+2+offset+offset_right] if (root[1]+2+offset+offset_right < counted.size) else 0
+
+            while (offset < counted.size // 2) & (left == right): #maximize trailing 1s
+                offset += 2
+                left = counted[root[1]-2-offset-offset_left] if (root[1]-2-offset-offset_left > 0) else 0
+                right = counted[root[1]+2+offset+offset_right] if (root[1]+2+offset+offset_right < counted.size) else 0
+            
+            side = (right - left)
+            if left == 0: #out of bounds
+                side = 1
+            if right == 0: #out of bounds
+                side = -1
+
+            if  side > 0: #grow to right
+                window_value[0] += counted[root[1]+offset_right+1] + counted[root[1]+offset_right+2]
+                window_value[1] += counted[root[1]+offset_right+2]
+                self.update_idx_table(window_value, 0)
+                offset_right += 2
+            else: #grow to left
+                window_value[0] += counted[root[1]-offset_left-1] + counted[root[1]-offset_left-2]
+                window_value[1] += counted[root[1]-offset_left-2]
+                self.update_idx_table(window_value, 0)
+                offset_left += 2
+            offset = 0
 
     def find_root(self, counted, edge_zeros):
         root = np.zeros(2).astype(int)
@@ -162,20 +213,23 @@ class JumbledPatternMatch:
 
 
 jpm = JumbledPatternMatch()
-jpm.set_str_array([1, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1])
-#jpm.new_random()
+
+""" #jpm.set_str_array([1, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1])
+jpm.new_random()
 jpm.n_logn(jpm.str_array)
 differ = jpm.verify_algorithm()
-jpm.print_tables(differ)
+jpm.print_tables(differ) """
 
 
-""" differ = 0
-stack_limit = 500
+differ = 0
+stack_limit = 5000
 while (differ == 0) & (stack_limit > 0):
     jpm.new_random()
-    print(jpm.str_array)
+    #print(jpm.str_array)
+    print(5000-stack_limit)
     jpm.n_logn(jpm.str_array)
     differ = jpm.verify_algorithm()
     stack_limit -= 1
 
-jpm.print_tables(differ) """
+jpm.print_tables(differ)
+print(5000-stack_limit)
