@@ -2,7 +2,7 @@ import numpy as np
 
 
 class JumbledPatternMatch:
-    size = 16
+    size = 4096
     str_array = np.zeros(size).astype(int)
     ref_table = np.zeros(size).astype(int)
     idx_table = np.zeros(size).astype(int)
@@ -20,9 +20,6 @@ class JumbledPatternMatch:
         return self.ref_table
 
     def n_logn(self, str_array):
-
-        print(str_array)
-
         edge_zeros = self.remove_edge_zeros_string(str_array)
         counted = self.get_counted(str_array, edge_zeros)
 
@@ -35,16 +32,13 @@ class JumbledPatternMatch:
             #divide string
             if root[1] == 0:
                 #print('init', str_array[(counted[0]+edge_zeros[0]):])
-                print('inicio')
                 self.n_logn(str_array[(counted[0]+edge_zeros[0]):])
             elif root[1] == counted.size-1:
                 #print('end', str_array[:-(counted[-1]+edge_zeros[1])])
-                print('final')
                 self.n_logn(str_array[:-(counted[-1]+edge_zeros[1])])
             else:
                 #print('mid-init', str_array[:np.sum(counted[:(root[1]+1)])+edge_zeros[0]])
                 #print('mid-end', str_array[np.sum(counted[:root[1]])+edge_zeros[0]:])
-                print('meio')
                 self.n_logn(str_array[:np.sum(counted[:(root[1]+1)])+edge_zeros[0]])
                 self.n_logn(str_array[np.sum(counted[:root[1]])+edge_zeros[0]:])
 
@@ -57,7 +51,8 @@ class JumbledPatternMatch:
             differ_table[i] = self.ref_table[i] - self.idx_table[i]
             if self.ref_table[i] != self.idx_table[i]:
                 differ += 1
-        print(list(map(lambda it: '' if it == 0 else it, differ_table)))
+        if differ > 0:
+            print(list(map(lambda it: '' if it == 0 else it, differ_table)))
         return differ
 
     def print_tables(self, differ):
@@ -161,6 +156,8 @@ class JumbledPatternMatch:
             self.update_idx_table([np.sum(counted), np.sum(counted[::2])], zeros)
             while (offset < counted.size // 2) & (counted[0+offset] == counted[-1-offset]):
                 offset += 1
+                """ if offset >= (counted.size // 2):
+                    print('aqui da ruim:', offset, counted, (counted.size // 2)) """
            
             side = (counted[offset] - counted[-1-offset]) * (-1 if offset % 2 == 1 else 1)
 
@@ -217,16 +214,16 @@ class JumbledPatternMatch:
 
 jpm = JumbledPatternMatch()
 
-#jpm.set_str_array([1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1])
-jpm.set_str_array([0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1])
+""" #jpm.set_str_array([1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1])
+#jpm.set_str_array([0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1])
 #print(jpm.str_array)
-#jpm.new_random()
+jpm.new_random()
 jpm.n_logn(jpm.str_array)
 differ = jpm.verify_algorithm()
-#jpm.print_tables(differ)
+#jpm.print_tables(differ) """
 
 
-""" differ = 0
+differ = 0
 stack_limit = 5000
 while (differ == 0) & (stack_limit > 0):
     jpm.new_random()
@@ -237,4 +234,4 @@ while (differ == 0) & (stack_limit > 0):
     stack_limit -= 1
 
 jpm.print_tables(differ)
-print(5000-stack_limit) """
+print(5000-stack_limit)
