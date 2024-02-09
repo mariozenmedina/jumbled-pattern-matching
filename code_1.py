@@ -3,7 +3,7 @@ import time
 import numpy as np
 import suffix_tree as sf #https://pypi.org/project/suffix-tree/
 
-size = 6000 #Binary String Size
+size = 5000 #Binary String Size
 str_array = np.random.randint(2, size=(1, size))[0] #Create generic string
 #str_array = np.array([1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0]) #Create generic string
 naive_table_max_1 = np.zeros(str_array.size).astype(int) #T_max_1 naive index table
@@ -78,8 +78,6 @@ def specialPatternEncode(str_array):
             count = 1
     special_encode.append(chr(64+count) if str_array[-1] == 0 else chr(96+count))
     special_encode = np.array(special_encode)
-    special_encode = special_encode if str_array[0] == 1 else special_encode[1:] #Remove first 0s
-    special_encode = special_encode if str_array[-1] == 1 else special_encode[:-1] #Remove last 0s
     return ''.join(special_encode)
 
 def ukkonen_tree(special_encode):
@@ -87,16 +85,23 @@ def ukkonen_tree(special_encode):
     return tree
 
 def get_leaf_str(node):
+    global time_traversal
+    global time_traversal_save
+    time_traversal += (time.time() - time_traversal_save)
     #ignore root node
     if node.end > 0:
         #ignore leaf with terminator
-        if ''.join(map(str, node.S[node.start : node.end])) != '$':
+        if isinstance(node.S[node.start], str):
             #ignore substring starting with 0
                 if ord(node.S[node.start]) > 96:
                     index(node.start, node.end, (node.parent.end - node.parent.start + 1) // 2 * 2)
+                else:
+                    index_0(node.start, node.end, (node.parent.end - node.parent.start + 1) // 2 * 2)
 
 def index(ini, end, start):
     global counted
+    global time_without_tree
+    start_time = time.time()
     #ignore substring ending in 0 with parent already indexed
     if (end-ini) % 2 != 0 or end-ini-start > 1:
         window = 0
@@ -106,12 +111,41 @@ def index(ini, end, start):
             window += 0 if i == 0 else counted[ini+i-1]
             count += counted[ini+i]
         for i in range(start, end-ini, 2):
-            global un
-            un += 1
+            if ini+i < len(counted):
+                global un
+                un += 1
+                window += counted[ini+i]
+                window += 0 if i == 0 else counted[ini+i-1]
+                count += counted[ini+i]
+                idx_table_max_1[window-1] = max(count, idx_table_max_1[window-1])
+    time_without_tree += (time.time() - start_time)
+    global time_traversal_save
+    time_traversal_save = time.time()
+    
+
+def index_0(ini, end, start):
+    global counted
+    global time_without_tree
+    start_time = time.time()
+    #ignore substring ending in 0 with parent already indexed
+    if (end-ini) % 2 != 0 or end-ini-start > 1:
+        window = 0
+        count = 0
+        for i in range(0, start, 2):
             window += counted[ini+i]
             window += 0 if i == 0 else counted[ini+i-1]
             count += counted[ini+i]
-            idx_table_max_1[window-1] = max(count, idx_table_max_1[window-1])
+        for i in range(start, end-ini, 2):
+            if ini+i < len(counted):
+                global un
+                un += 1
+                window += counted[ini+i]
+                window += 0 if i == 0 else counted[ini+i-1]
+                count += counted[ini+i]
+                idx_table_max_0[window-1] = max(count, idx_table_max_0[window-1])
+    time_without_tree += (time.time() - start_time)
+    global time_traversal_save
+    time_traversal_save = time.time()
 
 def windonize_table(table):
     for i in range(table.size-2, -1, -1):
@@ -120,16 +154,20 @@ def windonize_table(table):
         table[i] = max(table[i], table[i-1])
     
 un = 0
+start_time = time.time()
+time_traversal = 0
+time_traversal_save = 0
+time_without_tree = 0
 special_encode = specialPatternEncode(str_array)
 counted = get_counted(str_array)
-counted = counted if str_array[0] == 1 else counted[1:] #Remove first 0s
-counted = counted if str_array[-1] == 1 else counted[:-1] #Remove last 0s
 tree = ukkonen_tree(special_encode)
-start_time = time.time()
 tree.pre_order(get_leaf_str)
+windonize_table(idx_table_max_0)
 windonize_table(idx_table_max_1)
 print("SuffixT algorithm: --- %s seconds ---" % (time.time() - start_time))
+print("Time in index: --- %s seconds ---" % (time_without_tree))
 print('p²= ', un)
+#print(idx_table_max_0)
 #print(idx_table_max_1)
 
 start_time = time.time()
