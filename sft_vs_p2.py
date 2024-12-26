@@ -2,6 +2,7 @@ import sys
 import time
 import suffix_tree as sf #https://pypi.org/project/suffix-tree/
 import numpy as np
+import matplotlib.pyplot as plt
 
 class SuffixTree:
     def __init__(self, array):
@@ -106,11 +107,11 @@ class SuffixTree:
             
 ############################################################ CONFIGS ############################################################
 
-size = 5000 #Binary String Size
+size = 140000 #Binary String Size
 str_array = np.random.randint(2, size=(1, size))[0] #Create generic binary string
 
 """ size = 10 #Binary String Size
-str_array = np.array([1,1,0,0,0,1,0,1,0,1]) #Create generic binary string """
+str_array = np.array([1,1,0,1,0,0,1,1,1,0]) #Create generic binary string """
 
 jbm2017_table_max_1 = np.zeros(str_array.size).astype(int) #T_max_1 Jbm2017 algorithm index table
 jbm2017_table_max_0 = np.zeros(str_array.size).astype(int) #T_max_0 Jbm2017 algorithm index table
@@ -138,6 +139,7 @@ def suffix_tree_algorithm(array, table):
     counted = get_counted(array)
     summed = get_summed(counted)
     tree = SuffixTree(counted)
+    #tree.print_tree()
     suffix_indexing_iterative(tree, summed, table)
     windonize_table(table[0])
     windonize_table(table[1])
@@ -180,15 +182,6 @@ def windonize_table(table): #Windonize table
     for i in range(1, table.size):
         table[i] = max(table[i], table[i-1])
 
-def get_special_encode(counted): #Returns array of special encoded
-    special_encode = []
-    for i,v in enumerate(counted):
-        if (i+str_array[0]) % 2 == 0:
-            special_encode.append(chr(64+v))
-        else:
-            special_encode.append(chr(96+v))
-    return special_encode
-
 def get_summed(counted): #Auxiliary array, prevents repeated sum of prefix for each tree suffix
     summed, window, tot_1 = np.zeros((counted.size, 2), dtype=int), 0, 0
     str_array0 = str_array[0]
@@ -207,7 +200,51 @@ def suffix_indexing_iterative(tree, summed, table):
         node, parent = stack.pop()
         
         if parent is not None:
+
             # Compute `digit` and indices once for all iterations
+            digit = 0 if (parent % 2 == 0) == (str_array0 == 0) else 1
+            index = table[digit]
+            
+            summedParent = summed[parent - 1] if parent != 0 else np.array([0, 0], dtype=summed.dtype)
+            
+            # Pré-carregando valores dos pais
+            summedParent0, summedParent1 = summedParent
+            
+            # Determina os slices de uma vez (para evitar loops individuais)
+            start, end = node.start, node.end
+            range_indices = np.arange(start, end, 2)
+            
+            # Cache de valores das faixas no numpy
+            summedRange = summed[range_indices]
+            summedRange0 = summedRange[:, 0]  # Primeiro valor
+            summedRange1 = summedRange[:, 1]  # Segundo valor
+            
+            # Cálculo das janelas (window)
+            windows = summedRange0 - summedParent0
+            
+            # Cálculo dos counts vetorizados
+            if digit == 0:
+                counts = windows - (summedRange1 - summedParent1)
+            else:
+                counts = summedRange1 - summedParent1
+
+            # Atualização vetorizada de índices
+            np.maximum.at(index, windows - 1, counts)
+
+        # Add children to stack (push children of the current node)
+        for child_key, child_node in node.children.items():
+            new_parent = parent or child_node.start
+            stack.append((child_node, new_parent))
+
+""" def suffix_indexing_iterative(tree, summed, table):
+    str_array0 = str_array[0]
+    stack = [(tree.root, None)]
+    
+    while stack:
+        node, parent = stack.pop()
+        
+        if parent is not None:
+            # Compute digit and indices once for all iterations
             digit = 0 if (parent % 2 == 0) == (str_array0 == 0) else 1
             index = table[digit]
             
@@ -231,35 +268,48 @@ def suffix_indexing_iterative(tree, summed, table):
         # Add children to stack (push children of the current node)
         for child_key, child_node in node.children.items():
             new_parent = parent or child_node.start
-            stack.append((child_node, new_parent))
-
-""" def suffix_indexing(node, parent, summed, table):
-    if parent != None: #not root
-        str_array0 = str_array[0]
-        digit = 0 if (parent % 2 == 0) == (str_array0 == 0) else 1  # Optimized logic for `digit`
-        
-        index = table[digit]
-        
-        summedParent = summed[parent - 1]  # Get the parent summed values once
-        summedParent0, summedParent1 = summedParent[0], summedParent[1]
-        
-        for i in range(node.start, node.end, 2):
-            summedIndex = summed[i]  # Access summed[i] once per loop
-            summedIndex0, summedIndex1 = summedIndex[0], summedIndex[1]  # Cache summedIndex values
+            stack.append((child_node, new_parent)) """
             
-            window = summedIndex0 - (0 if parent == 0 else summedParent0)
-            
-            # Compute count more efficiently using simple arithmetic
-            if digit == 0:
-                count = window - (summedIndex1 - (0 if parent == 0 else summedParent1))
+def count_repeated_substrings(binary_array):
+    """
+    Counts how many repeated substrings exist in a binary string.
+    
+    Parameters:
+        binary_array (np.ndarray): A numpy array of binary digits (0s and 1s).
+    
+    Returns:
+        int: The number of repeated substrings.
+    """
+    # Convert the binary array to a string for substring operations
+    binary_string = ''.join(map(str, binary_array.tolist()))
+    n = len(binary_string)
+    substring_count = {}
+    
+    # Count occurrences of all substrings
+    for length in range(1, n):  # Substring lengths from 1 to n-1
+        for start in range(n - length + 1):
+            substring = binary_string[start:start + length]
+            if substring in substring_count:
+                substring_count[substring] += 1
             else:
-                count = summedIndex1 - (0 if parent == 0 else summedParent1)
-                
-            index[window - 1] = max(count, index[window - 1])
-      
-    for child_key, child_node in node.children.items():
-            new_parent = parent or child_node.start
-            suffix_indexing(child_node, new_parent, summed, table) """
+                substring_count[substring] = 1
+    
+    # Count how many substrings are repeated (occurrences > 1)
+    repeated_count = sum(1 for count in substring_count.values() if count > 1)
+    
+    return repeated_count
+
+def create_fibonacci_word(length):
+    # Inicialização das primeiras palavras
+    fib_0 = "0"
+    fib_1 = "01"
+    
+    # Continue gerando até atingir o tamanho necessário
+    while len(fib_1) < length:
+        fib_0, fib_1 = fib_1, fib_1 + fib_0  # Atualização baseada na definição
+
+    # Corta a sequência até o tamanho desejado e converte para np.array
+    return np.array(list(map(int, fib_1[:length])))
 
 ############ Print string size ############
 print('String size: ', str_array.size)
@@ -269,37 +319,43 @@ print('')
 start_time = time.time()
 suffix_tree_algorithm(str_array, sftree_table_max)
 print("Suffix Tree algorithm: --- %s seconds ---" % (time.time() - start_time))
+#print(sftree_table_max[1])
 print('')
 
 ############ Starts Jumbled Matching 2017 Algorithm ############
-start_time = time.time()
+""" start_time = time.time()
 jumbled_matching_2017(str_array)
 print("Jumbled Matching 2017: --- %s seconds ---" % (time.time() - start_time))
-print('')
+#print(jbm2017_table_max_1)
+print('') """
 
 ############ Compare if tables match ############
-print('Max_1', (sftree_table_max[1]==jbm2017_table_max_1).all() )
-print('Max_0', (sftree_table_max[0]==jbm2017_table_max_0).all() )
+#print('Max_1', (sftree_table_max[1]==jbm2017_table_max_1).all() )
+#print('Max_0', (sftree_table_max[0]==jbm2017_table_max_0).all() )
 
 
 #### média de comparações
 """ cunha = []
 sftree = []
-for i in range(10):
-    size = 100000 #Binary String Size
+for i in range(1):
+    size = 100 #Binary String Size
     str_array = np.random.randint(2, size=(1, size))[0] #Create generic binary string
+    #str_array = np.tile([1, 0], size // 2 + 1)[:size]
+    #str_array = create_fibonacci_word(size)
     jbm2017_table_max_1 = np.zeros(str_array.size).astype(int) #T_max_1 Jbm2017 algorithm index table
     jbm2017_table_max_0 = np.zeros(str_array.size).astype(int) #T_max_0 Jbm2017 algorithm index table
-    sftree_table_max_1 = np.zeros(str_array.size).astype(int) #T_max_1 SfTree index table
-    sftree_table_max_0 = np.zeros(str_array.size).astype(int) #T_max_0 SfTree index table
+    sftree_table_max = np.array([
+        np.zeros(str_array.size).astype(int), #T_max_1 SfTree index table
+        np.zeros(str_array.size).astype(int) #T_max_0 SfTree index table
+    ])
+    
+    start_time = time.time()
+    suffix_tree_algorithm(str_array, sftree_table_max)
+    sftree.append(time.time() - start_time)
     
     start_time = time.time()
     jumbled_matching_2017(str_array)
     cunha.append(time.time() - start_time)
-    
-    start_time = time.time()
-    suffix_tree_algorithm(str_array)
-    sftree.append(time.time() - start_time)
 
 print('Cunha average: ', sum(cunha)/len(cunha))
 print('Stree average: ', sum(sftree)/len(sftree))
@@ -316,3 +372,52 @@ for i,v in enumerate(cunha):
         cunha_count += 1
 
 print(cunha_count) """
+
+
+#### PLOT
+""" # Function to measure time taken by a function
+def measure_time(func, n):
+    start_time = time.time()
+    func(n)
+    end_time = time.time()
+    return end_time - start_time
+
+# Input sizes to test
+input_sizes = []
+
+# Lists to store the time taken for each algorithm
+cunha = []
+sftree = []
+
+for i in range(1, 500):
+    size = 50 * i #Binary String Size
+    input_sizes.append(size)
+    #str_array = np.random.randint(2, size=(1, size))[0] #Create generic binary string
+    #str_array = np.tile([1, 0], size // 2 + 1)[:size]
+    str_array = create_fibonacci_word(size)
+    jbm2017_table_max_1 = np.zeros(str_array.size).astype(int) #T_max_1 Jbm2017 algorithm index table
+    jbm2017_table_max_0 = np.zeros(str_array.size).astype(int) #T_max_0 Jbm2017 algorithm index table
+    sftree_table_max = np.array([
+        np.zeros(str_array.size).astype(int), #T_max_1 SfTree index table
+        np.zeros(str_array.size).astype(int) #T_max_0 SfTree index table
+    ])
+    
+    start_time = time.time()
+    suffix_tree_algorithm(str_array, sftree_table_max)
+    sftree.append(time.time() - start_time)
+    
+    start_time = time.time()
+    jumbled_matching_2017(str_array)
+    cunha.append(time.time() - start_time)
+
+# Plot the results
+plt.figure(figsize=(10, 6))
+plt.plot(input_sizes, cunha, label="JBM2017", color='red', marker='x')
+plt.plot(input_sizes, sftree, label="SFTree", color='blue', marker='o')
+
+plt.xlabel('Input Size')
+plt.ylabel('Time (seconds)')
+plt.title('Comparison of Algorithm 1 and Algorithm 2')
+plt.legend()
+plt.grid(True)
+plt.show() """
