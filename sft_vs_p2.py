@@ -11,12 +11,13 @@ class SuffixTree:
         self.build_tree()
         
     class Node:
-        def __init__(self, start=-1, end=-1):
+        def __init__(self, start=-1, end=-1, parent=None):
             self.start = start  # Starting index of the edge
             self.end = end  # Ending index of the edge
             self.children = {}  # Dictionary to store children (keyed by character)
-            self.digits = set() #which digit it starts with
             self.suffix_link = None  # Suffix link for efficient traversal
+            self.parent = parent  # Pointer to the parent node
+            self.prefix_size = 0
             
     def build_tree(self):
         self.root = self.Node()  # Root node of the tree
@@ -31,70 +32,70 @@ class SuffixTree:
             self.extend_tree(i)
 
     def extend_tree(self, i):
-        self.remainder += 1  # Increase the number of suffixes to process
-        self.last_created_internal_node = None  # Reset the last created internal node
+        self.remainder += 1
+        self.last_created_internal_node = None
         
         while self.remainder > 0:
             if self.active_length == 0:
-                self.active_edge = i  # Start with the edge at index i
-            if self.array[self.active_edge] not in self.active_node.children:
-                # Create a new leaf node
-                self.active_node.children[self.array[self.active_edge]] = self.Node(start=i, end=self.n)
-                
-                if self.active_node == self.root:
-                    self.add_digit(self.active_node.children[self.array[self.active_edge]], i)
-                
-                # Suffix link handling: if we already have an internal node
+                self.active_edge = i
+
+            current_char = self.array[self.active_edge]
+
+            if current_char not in self.active_node.children:
+                # Criar nova folha
+                new_leaf = self.Node(start=i, end=self.n, parent=self.active_node)
+                self.active_node.children[current_char] = new_leaf
+
+                # Suffix link para o último nó interno criado
                 if self.last_created_internal_node is not None:
                     self.last_created_internal_node.suffix_link = self.active_node
-                
-                # Update the last created internal node
+
                 self.last_created_internal_node = self.active_node
             else:
-                # We have an existing child for this character, so walk down the edge
-                next_node = self.active_node.children[self.array[self.active_edge]]
+                next_node = self.active_node.children[current_char]
                 edge_length = next_node.end - next_node.start
-                
+
                 if self.active_length >= edge_length:
-                    # The active length exceeds the edge, so we need to move to the next edge
+                    # Move para o próximo nó
                     self.active_edge += edge_length
                     self.active_length -= edge_length
                     self.active_node = next_node
-                    continue  # Re-evaluate the current suffix
-            
+                    continue
+
                 if self.array[next_node.start + self.active_length] == self.array[i]:
-                    # We have a match, extend the active length
+                    # Caracter correspondente: extende o comprimento ativo
                     self.active_length += 1
                     if self.last_created_internal_node is not None:
                         self.last_created_internal_node.suffix_link = self.active_node
                     break
                 else:
-                    # We have a mismatch, so split the edge
-                    split_node = self.Node(start=next_node.start, end=next_node.start + self.active_length)
-                    self.active_node.children[self.array[self.active_edge]] = split_node
-                    
-                    # Create the new leaf node
-                    split_node.children[self.array[i]] = self.Node(start=i, end=self.n)
+                    # Dividir aresta
+                    split_node = self.Node(start=next_node.start, 
+                                        end=next_node.start + self.active_length, 
+                                        parent=self.active_node)
+                    self.active_node.children[current_char] = split_node
+
+                    # Atualizar o nó dividido
                     next_node.start += self.active_length
+                    next_node.parent = split_node
                     split_node.children[self.array[next_node.start]] = next_node
-                    
-                    # Suffix link handling
+
+                    # Criar novo nó folha
+                    new_leaf = self.Node(start=i, end=self.n, parent=split_node)
+                    split_node.children[self.array[i]] = new_leaf
+
+                    # Configurar suffix link
                     if self.last_created_internal_node is not None:
                         self.last_created_internal_node.suffix_link = split_node
+
                     self.last_created_internal_node = split_node
-                    
+
             self.remainder -= 1
             if self.active_node == self.root and self.active_length > 0:
                 self.active_length -= 1
                 self.active_edge = i - self.remainder + 1
             elif self.active_node != self.root:
-                self.active_node = self.active_node.suffix_link if self.active_node.suffix_link is not None else self.root
-    
-    def add_digit(self, node, i):
-        if i % 2 == 0:
-            node.digits.add(str_array[0]) #add the first digit of the string input
-        else:
-            node.digits.add(0 if str_array[0] == 1 else 1) #add the not first digit of the string input
+                self.active_node = self.active_node.suffix_link or self.root
     
     def print_tree(self, node=None, depth=0):
         if node is None:
@@ -102,16 +103,18 @@ class SuffixTree:
         
         for child_key, child_node in node.children.items():
             edge_string = ''.join(map(str, self.array[child_node.start:child_node.end]))
-            print(f"{' ' * depth}Edge {edge_string}: Node({child_node.start}, {child_node.end})")
+            parent_info = f" (Parent Start: {child_node.parent.start if child_node.parent else 'None'})"
+            print(f"{' ' * depth}Edge {edge_string}: Node({child_node.start}, {child_node.end}){parent_info}")
             self.print_tree(child_node, depth + 2)
+
             
 ############################################################ CONFIGS ############################################################
 
-size = 140000 #Binary String Size
+size = 5000 #Binary String Size
 str_array = np.random.randint(2, size=(1, size))[0] #Create generic binary string
 
 """ size = 10 #Binary String Size
-str_array = np.array([1,1,0,1,0,0,1,1,1,0]) #Create generic binary string """
+str_array = np.array([1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0]) #Create generic binary string """
 
 jbm2017_table_max_1 = np.zeros(str_array.size).astype(int) #T_max_1 Jbm2017 algorithm index table
 jbm2017_table_max_0 = np.zeros(str_array.size).astype(int) #T_max_0 Jbm2017 algorithm index table
@@ -194,24 +197,37 @@ def get_summed(counted): #Auxiliary array, prevents repeated sum of prefix for e
 
 def suffix_indexing_iterative(tree, summed, table):
     str_array0 = str_array[0]
-    stack = [(tree.root, None)]
+    stack = [tree.root]
     
     while stack:
-        node, parent = stack.pop()
+        node = stack.pop()
         
-        if parent is not None:
-
+        if node.parent is not None:
+            
+            next_parent = node.parent
+            if next_parent.start != -1:
+                while next_parent.start != -1:
+                    node.prefix_size -= next_parent.end - next_parent.start
+                    next_parent = next_parent.parent
+            
+            string_start = node.start+node.prefix_size
+            
             # Compute `digit` and indices once for all iterations
-            digit = 0 if (parent % 2 == 0) == (str_array0 == 0) else 1
+            digit = 0 if (string_start % 2 == 0) == (str_array0 == 0) else 1
             index = table[digit]
             
-            summedParent = summed[parent - 1] if parent != 0 else np.array([0, 0], dtype=summed.dtype)
+            # Where the string really starts
+            """ edge_string = ''.join(map(str, tree.array[node.start:node.end]))
+            parent_info = f" (ParentNode: {node.parent.start if node.parent else 'None'}, {node.parent.end if node.parent else 'None'})"
+            print(f"Edge {edge_string}: Node({node.start}, {node.end}) {parent_info}", digit, node.prefix_size) """
+            
+            summedParent = summed[string_start - 1] if string_start != 0 else np.array([0, 0], dtype=summed.dtype)
             
             # Pré-carregando valores dos pais
             summedParent0, summedParent1 = summedParent
             
             # Determina os slices de uma vez (para evitar loops individuais)
-            start, end = node.start, node.end
+            start, end = string_start, node.end
             range_indices = np.arange(start, end, 2)
             
             # Cache de valores das faixas no numpy
@@ -233,71 +249,7 @@ def suffix_indexing_iterative(tree, summed, table):
 
         # Add children to stack (push children of the current node)
         for child_key, child_node in node.children.items():
-            new_parent = parent or child_node.start
-            stack.append((child_node, new_parent))
-
-""" def suffix_indexing_iterative(tree, summed, table):
-    str_array0 = str_array[0]
-    stack = [(tree.root, None)]
-    
-    while stack:
-        node, parent = stack.pop()
-        
-        if parent is not None:
-            # Compute digit and indices once for all iterations
-            digit = 0 if (parent % 2 == 0) == (str_array0 == 0) else 1
-            index = table[digit]
-            
-            summedParent = summed[parent - 1]  # Get parent summed values
-            summedParent0, summedParent1 = summedParent[0], summedParent[1]
-            
-            for i in range(node.start, node.end, 2):
-                summedIndex = summed[i]  # Access summed[i] once per loop
-                summedIndex0, summedIndex1 = summedIndex[0], summedIndex[1]  # Cache summedIndex values
-                
-                window = summedIndex0 - (0 if parent == 0 else summedParent0)
-                
-                # Compute count more efficiently using simple arithmetic
-                if digit == 0:
-                    count = window - (summedIndex1 - (0 if parent == 0 else summedParent1))
-                else:
-                    count = summedIndex1 - (0 if parent == 0 else summedParent1)
-                    
-                index[window - 1] = max(count, index[window - 1])
-
-        # Add children to stack (push children of the current node)
-        for child_key, child_node in node.children.items():
-            new_parent = parent or child_node.start
-            stack.append((child_node, new_parent)) """
-            
-def count_repeated_substrings(binary_array):
-    """
-    Counts how many repeated substrings exist in a binary string.
-    
-    Parameters:
-        binary_array (np.ndarray): A numpy array of binary digits (0s and 1s).
-    
-    Returns:
-        int: The number of repeated substrings.
-    """
-    # Convert the binary array to a string for substring operations
-    binary_string = ''.join(map(str, binary_array.tolist()))
-    n = len(binary_string)
-    substring_count = {}
-    
-    # Count occurrences of all substrings
-    for length in range(1, n):  # Substring lengths from 1 to n-1
-        for start in range(n - length + 1):
-            substring = binary_string[start:start + length]
-            if substring in substring_count:
-                substring_count[substring] += 1
-            else:
-                substring_count[substring] = 1
-    
-    # Count how many substrings are repeated (occurrences > 1)
-    repeated_count = sum(1 for count in substring_count.values() if count > 1)
-    
-    return repeated_count
+            stack.append(child_node)
 
 def create_fibonacci_word(length):
     # Inicialização das primeiras palavras
@@ -323,15 +275,15 @@ print("Suffix Tree algorithm: --- %s seconds ---" % (time.time() - start_time))
 print('')
 
 ############ Starts Jumbled Matching 2017 Algorithm ############
-""" start_time = time.time()
+start_time = time.time()
 jumbled_matching_2017(str_array)
 print("Jumbled Matching 2017: --- %s seconds ---" % (time.time() - start_time))
 #print(jbm2017_table_max_1)
-print('') """
+print('')
 
 ############ Compare if tables match ############
-#print('Max_1', (sftree_table_max[1]==jbm2017_table_max_1).all() )
-#print('Max_0', (sftree_table_max[0]==jbm2017_table_max_0).all() )
+print('Max_1', (sftree_table_max[1]==jbm2017_table_max_1).all() )
+print('Max_0', (sftree_table_max[0]==jbm2017_table_max_0).all() )
 
 
 #### média de comparações
